@@ -4,11 +4,14 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from app.trie import Trie
+
 
 @dataclass
 class DictionaryService:
     words: dict[str, int] = field(default_factory=dict)
     total_frequency: int = 0
+    trie: Trie = field(default_factory=Trie)
 
     @property
     def word_count(self) -> int:
@@ -24,10 +27,13 @@ class DictionaryService:
             str(word).lower(): max(1, int(frequency))
             for word, frequency in raw_words.items()
         }
-        return cls(
+        service = cls(
             words=normalized,
             total_frequency=sum(normalized.values()),
         )
+        for word, frequency in normalized.items():
+            service.trie.insert(word, frequency)
+        return service
 
     def contains(self, word: str) -> bool:
         return word.lower() in self.words
@@ -44,3 +50,5 @@ class DictionaryService:
             self.total_frequency += safe_frequency
         else:
             self.total_frequency += safe_frequency - previous_frequency
+
+        self.trie.insert(normalized, safe_frequency)

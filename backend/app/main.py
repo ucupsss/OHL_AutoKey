@@ -19,3 +19,14 @@ def health() -> dict[str, bool | int]:
         "dictionary_loaded": dictionary_service.word_count > 0,
         "word_count": dictionary_service.word_count,
     }
+
+
+@app.get("/stats")
+def stats() -> dict[str, int | float]:
+    trie_stats = dictionary_service.trie.stats()
+    return {
+        "word_count": trie_stats.word_count,
+        "node_count": trie_stats.node_count,
+        "average_depth": trie_stats.average_depth,
+        "estimated_memory_bytes": trie_stats.estimated_memory_bytes,
+    }
