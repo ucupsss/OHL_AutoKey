@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import WORD_PATTERN, app
 
 
 client = TestClient(app)
@@ -71,6 +71,14 @@ def test_check_all_reports_invalid_words():
     assert any(item["word"] == "qqqtidakvalid" for item in invalid_words)
 
 
+def test_word_pattern_matches_unicode_letters_as_one_token():
+    text = "caf\u00e9tes"
+
+    matches = [match.group(0) for match in WORD_PATTERN.finditer(text)]
+
+    assert matches == [text]
+
+
 def test_dictionary_add_makes_word_valid_runtime():
     response = client.post("/dictionary/add", json={"word": "katabarutes"})
 
@@ -79,3 +87,14 @@ def test_dictionary_add_makes_word_valid_runtime():
 
     validate_response = client.get("/validate", params={"word": "katabarutes"})
     assert validate_response.json()["valid"] is True
+
+
+def test_segment_endpoint_returns_dp_and_traceback():
+    response = client.post("/segment", json={"text": "programdinamis"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "success" in payload
+    assert "dp" in payload
+    assert "traceback" in payload
+    assert isinstance(payload["dp"], list)

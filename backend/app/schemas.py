@@ -48,3 +48,22 @@ class AddWordResponse(BaseModel):
     word: str
     added: bool
     valid: bool
+
+
+class SegmentRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class TracebackStepResponse(BaseModel):
+    start: int
+    end: int
+    word: str
+    cost: float
+
+
+class SegmentResponse(BaseModel):
+    success: bool
+    segmented_text: str
+    dp: list[float | None]
+    traceback: list[TracebackStepResponse]
+    message: str

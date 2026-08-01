@@ -5,6 +5,7 @@ from fastapi import FastAPI, Query
 
 from app.dictionary import DictionaryService
 from app.levenshtein import find_spell_suggestions
+from app.segmentation import segment_text
 from app.schemas import (
     AddWordRequest,
     AddWordResponse,
@@ -12,9 +13,12 @@ from app.schemas import (
     CheckAllRequest,
     CheckAllResponse,
     InvalidWordResponse,
+    SegmentRequest,
+    SegmentResponse,
     SpellSuggestionResponse,
     SpellSuggestionsResponse,
     SuggestionResponse,
+    TracebackStepResponse,
     ValidateResponse,
 )
 
@@ -120,4 +124,28 @@ def add_word(request: AddWordRequest) -> AddWordResponse:
         word=normalized,
         added=True,
         valid=dictionary_service.contains(normalized),
+    )
+
+
+@app.post("/segment", response_model=SegmentResponse)
+def segment(request: SegmentRequest) -> SegmentResponse:
+    result = segment_text(
+        request.text,
+        dictionary_service.words,
+        dictionary_service.total_frequency,
+    )
+    return SegmentResponse(
+        success=result.success,
+        segmented_text=result.segmented_text,
+        dp=result.dp,
+        traceback=[
+            TracebackStepResponse(
+                start=step.start,
+                end=step.end,
+                word=step.word,
+                cost=step.cost,
+            )
+            for step in result.traceback
+        ],
+        message=result.message,
     )
