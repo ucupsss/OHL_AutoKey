@@ -1,9 +1,22 @@
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, Query
 
 from app.dictionary import DictionaryService
-from app.schemas import AutocompleteResponse, SuggestionResponse, ValidateResponse
+from app.levenshtein import find_spell_suggestions
+from app.schemas import (
+    AddWordRequest,
+    AddWordResponse,
+    AutocompleteResponse,
+    CheckAllRequest,
+    CheckAllResponse,
+    InvalidWordResponse,
+    SpellSuggestionResponse,
+    SpellSuggestionsResponse,
+    SuggestionResponse,
+    ValidateResponse,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -11,6 +24,24 @@ DATA_PATH = ROOT_DIR / "data" / "kamus.json"
 
 app = FastAPI(title="AutoKey API")
 dictionary_service = DictionaryService.load(DATA_PATH)
+WORD_PATTERN = re.compile(r"[A-Za-zÀ-ÿ]+")
+
+
+def _spell_suggestions(word: str, limit: int = 5) -> list[SpellSuggestionResponse]:
+    suggestions = find_spell_suggestions(
+        word,
+        dictionary_service.words,
+        max_distance=2,
+        limit=limit,
+    )
+    return [
+        SpellSuggestionResponse(
+            word=item.word,
+            frequency=item.frequency,
+            distance=item.distance,
+        )
+        for item in suggestions
+    ]
 
 
 @app.get("/health")
@@ -52,5 +83,41 @@ def validate(word: str = Query(..., min_length=1)) -> ValidateResponse:
     normalized = word.strip().lower()
     return ValidateResponse(
         word=normalized,
+        valid=dictionary_service.contains(normalized),
+    )
+
+
+@app.get("/spell-suggestions", response_model=SpellSuggestionsResponse)
+def spell_suggestions(
+    word: str = Query(..., min_length=1),
+    limit: int = Query(default=5, ge=1, le=20),
+) -> SpellSuggestionsResponse:
+    return SpellSuggestionsResponse(suggestions=_spell_suggestions(word, limit))
+
+
+@app.post("/check-all", response_model=CheckAllResponse)
+def check_all(request: CheckAllRequest) -> CheckAllResponse:
+    invalid_words: list[InvalidWordResponse] = []
+    for match in WORD_PATTERN.finditer(request.text):
+        word = match.group(0).lower()
+        if not dictionary_service.contains(word):
+            invalid_words.append(
+                InvalidWordResponse(
+                    word=word,
+                    start=match.start(),
+                    end=match.end(),
+                    suggestions=_spell_suggestions(word, 5),
+                )
+            )
+    return CheckAllResponse(invalid_words=invalid_words)
+
+
+@app.post("/dictionary/add", response_model=AddWordResponse)
+def add_word(request: AddWordRequest) -> AddWordResponse:
+    normalized = request.word.strip().lower()
+    dictionary_service.add_word(normalized, 1)
+    return AddWordResponse(
+        word=normalized,
+        added=True,
         valid=dictionary_service.contains(normalized),
     )

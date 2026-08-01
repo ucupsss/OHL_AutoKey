@@ -51,3 +51,31 @@ def test_validate_reports_known_word():
     payload = response.json()
     assert payload["word"] == "program"
     assert isinstance(payload["valid"], bool)
+
+
+def test_spell_suggestions_endpoint_returns_candidates():
+    response = client.get("/spell-suggestions", params={"word": "prgram", "limit": 5})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "suggestions" in payload
+    assert len(payload["suggestions"]) <= 5
+
+
+def test_check_all_reports_invalid_words():
+    response = client.post("/check-all", json={"text": "program qqqtidakvalid"})
+
+    assert response.status_code == 200
+    payload = response.json()
+    invalid_words = payload["invalid_words"]
+    assert any(item["word"] == "qqqtidakvalid" for item in invalid_words)
+
+
+def test_dictionary_add_makes_word_valid_runtime():
+    response = client.post("/dictionary/add", json={"word": "katabarutes"})
+
+    assert response.status_code == 200
+    assert response.json()["valid"] is True
+
+    validate_response = client.get("/validate", params={"word": "katabarutes"})
+    assert validate_response.json()["valid"] is True
