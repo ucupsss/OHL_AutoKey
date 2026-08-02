@@ -6,6 +6,7 @@ import { RefreshCw } from "lucide-react";
 import { api, type HealthResponse, type TrieStats } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AutokeyEditor } from "@/components/editor/autokey-editor";
 import {
   Card,
   CardContent,
@@ -37,6 +38,7 @@ function formatBytes(value: number) {
 }
 
 export default function Home() {
+  const [editorText, setEditorText] = useState("");
   const [state, setState] = useState<LoadState>({
     health: null,
     stats: null,
@@ -184,6 +186,8 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+
+        <AutokeyEditor text={editorText} onTextChange={setEditorText} />
       </section>
     </main>
   );

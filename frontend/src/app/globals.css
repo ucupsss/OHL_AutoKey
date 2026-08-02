@@ -128,3 +128,10 @@
     @apply font-sans;
   }
 }
+
+.autokey-editor [data-invalid="true"] {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--destructive);
+  text-underline-offset: 3px;
+}
