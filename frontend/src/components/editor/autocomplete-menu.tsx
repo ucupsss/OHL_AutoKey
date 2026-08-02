@@ -24,8 +24,10 @@ export function AutocompleteMenu({
         <Button
           key={suggestion.word}
           type="button"
-          variant={index === activeIndex ? "secondary" : "ghost"}
-          className="h-9 w-full justify-between"
+          variant="ghost"
+          className={`h-9 w-full justify-between ${
+            index === activeIndex ? "autokey-suggestion-active" : ""
+          }`}
           onMouseDown={(event) => {
             event.preventDefault();
             onPick(suggestion.word);

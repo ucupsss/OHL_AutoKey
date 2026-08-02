@@ -255,11 +255,17 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   }
 
   return (
-    <Card className="relative">
+    <Card className="relative border-[color:color-mix(in_oklch,var(--autokey-accent)_18%,var(--border))]">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Editor</CardTitle>
-          <span className="text-xs text-muted-foreground">{status}</span>
+          <div className="flex items-center gap-2">
+            <span
+              className="autokey-accent-dot h-2 w-2 rounded-full"
+              aria-hidden="true"
+            />
+            <CardTitle>Editor</CardTitle>
+          </div>
+          <span className="autokey-accent-text text-xs">{status}</span>
         </div>
       </CardHeader>
       <CardContent className="relative">
@@ -270,7 +276,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
           contentEditable
           suppressContentEditableWarning
           spellCheck={false}
-          className="autokey-editor min-h-72 w-full whitespace-pre-wrap rounded-md border bg-background p-4 text-base leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="autokey-editor min-h-72 w-full whitespace-pre-wrap rounded-md border bg-background p-4 text-base leading-7 outline-none"
           onInput={handleInput}
           onKeyDown={handleKeyDown}
         />

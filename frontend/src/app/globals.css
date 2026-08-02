@@ -51,6 +51,9 @@
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+  --autokey-accent: oklch(0.63 0.18 155);
+  --autokey-accent-strong: oklch(0.45 0.15 155);
+  --autokey-accent-soft: oklch(0.96 0.05 155);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -86,6 +89,9 @@
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
+  --autokey-accent: oklch(0.72 0.16 155);
+  --autokey-accent-strong: oklch(0.78 0.15 155);
+  --autokey-accent-soft: oklch(0.24 0.06 155);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
@@ -134,4 +140,30 @@
   text-decoration-style: wavy;
   text-decoration-color: var(--destructive);
   text-underline-offset: 3px;
+}
+
+.autokey-accent-surface {
+  background: var(--autokey-accent-soft);
+  border-color: color-mix(in oklch, var(--autokey-accent) 36%, var(--border));
+}
+
+.autokey-accent-text {
+  color: var(--autokey-accent-strong);
+}
+
+.autokey-accent-dot {
+  background: var(--autokey-accent);
+  box-shadow: 0 0 0 4px
+    color-mix(in oklch, var(--autokey-accent) 18%, transparent);
+}
+
+.autokey-editor:focus-visible {
+  border-color: var(--autokey-accent);
+  box-shadow: 0 0 0 3px
+    color-mix(in oklch, var(--autokey-accent) 24%, transparent);
+}
+
+.autokey-suggestion-active {
+  background: color-mix(in oklch, var(--autokey-accent) 14%, var(--background));
+  color: var(--foreground);
 }

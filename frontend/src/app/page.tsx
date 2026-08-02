@@ -77,15 +77,30 @@ export default function Home() {
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
       <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 border-b pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-[color:color-mix(in_oklch,var(--autokey-accent)_24%,var(--border))] pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-normal">AutoKey</h1>
+            <div className="flex items-center gap-3">
+              <span
+                className="autokey-accent-dot h-2.5 w-2.5 rounded-full"
+                aria-hidden="true"
+              />
+              <h1 className="text-2xl font-semibold tracking-normal">
+                AutoKey
+              </h1>
+            </div>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Backend and dictionary readiness check for the AutoKey editor.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant={online ? "default" : "secondary"}>
+            <Badge
+              variant={online ? "outline" : "secondary"}
+              className={
+                online
+                  ? "autokey-accent-surface autokey-accent-text"
+                  : undefined
+              }
+            >
               {online ? "Backend ready" : "Backend offline"}
             </Badge>
             <Button
@@ -120,9 +135,17 @@ export default function Home() {
               ) : null}
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-md border p-4">
+                <div
+                  className={`rounded-md border p-4 ${
+                    online ? "autokey-accent-surface" : ""
+                  }`}
+                >
                   <p className="text-xs text-muted-foreground">API</p>
-                  <p className="mt-1 text-lg font-medium">
+                  <p
+                    className={`mt-1 text-lg font-medium ${
+                      online ? "autokey-accent-text" : ""
+                    }`}
+                  >
                     {state.loading ? "Checking" : online ? "Ready" : "Offline"}
                   </p>
                 </div>
