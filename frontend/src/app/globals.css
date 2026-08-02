@@ -129,7 +129,7 @@
   }
 }
 
-.autokey-editor [data-invalid="true"] {
+.autokey-invalid-token {
   text-decoration-line: underline;
   text-decoration-style: wavy;
   text-decoration-color: var(--destructive);

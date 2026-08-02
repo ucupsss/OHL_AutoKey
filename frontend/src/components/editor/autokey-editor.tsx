@@ -3,7 +3,6 @@
 import {
   type FormEvent,
   type KeyboardEvent,
-  type MouseEvent,
   useEffect,
   useMemo,
   useRef,
@@ -80,48 +79,6 @@ function setCaretOffset(container: HTMLElement, offset: number) {
   selection?.addRange(range);
 }
 
-function renderTokenizedText(
-  text: string,
-  tokens: Token[],
-  invalidKeys: Set<string>,
-  onInvalidClick: (token: Token, event: MouseEvent<HTMLSpanElement>) => void,
-) {
-  const nodes: React.ReactNode[] = [];
-  let cursor = 0;
-
-  tokens.forEach((token) => {
-    if (cursor < token.start) {
-      nodes.push(text.slice(cursor, token.start));
-    }
-
-    const key = tokenKey(token);
-    const invalid = invalidKeys.has(key);
-    nodes.push(
-      <span
-        key={key}
-        data-invalid={invalid ? "true" : undefined}
-        className={invalid ? "cursor-pointer" : undefined}
-        onMouseDown={(event) => {
-          if (!invalid) {
-            return;
-          }
-          event.preventDefault();
-          onInvalidClick(token, event);
-        }}
-      >
-        {text.slice(token.start, token.end)}
-      </span>,
-    );
-    cursor = token.end;
-  });
-
-  if (cursor < text.length) {
-    nodes.push(text.slice(cursor));
-  }
-
-  return nodes.length > 0 ? nodes : "\u00a0";
-}
-
 export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const nextCaretOffset = useRef<number | null>(null);
@@ -132,17 +89,29 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const [status, setStatus] = useState("Ready");
 
   const tokens = useMemo(() => getWordTokens(text), [text]);
+  const invalidTokens = useMemo(
+    () => tokens.filter((token) => invalidKeys.has(tokenKey(token))),
+    [invalidKeys, tokens],
+  );
 
   useEffect(() => {
     const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    if (editor.innerText.replace(/\r/g, "") !== text) {
+      editor.innerText = text;
+    }
+
     const offset = nextCaretOffset.current;
-    if (!editor || offset === null) {
+    if (offset === null) {
       return;
     }
 
     setCaretOffset(editor, offset);
     nextCaretOffset.current = null;
-  }, [text, invalidKeys]);
+  }, [text]);
 
   async function updateAutocomplete(nextText: string, caretOffset: number) {
     const currentWord = getCurrentWord(nextText, caretOffset);
@@ -304,11 +273,25 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
           className="autokey-editor min-h-72 w-full whitespace-pre-wrap rounded-md border bg-background p-4 text-base leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onInput={handleInput}
           onKeyDown={handleKeyDown}
-        >
-          {renderTokenizedText(text, tokens, invalidKeys, (token) => {
-            void openCorrectionMenu(token);
-          })}
-        </div>
+        />
+
+        {invalidTokens.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {invalidTokens.map((token) => (
+              <button
+                key={tokenKey(token)}
+                type="button"
+                className="autokey-invalid-token rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-sm text-destructive"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  void openCorrectionMenu(token);
+                }}
+              >
+                {text.slice(token.start, token.end)}
+              </button>
+            ))}
+          </div>
+        ) : null}
 
         <AutocompleteMenu
           suggestions={suggestions}
