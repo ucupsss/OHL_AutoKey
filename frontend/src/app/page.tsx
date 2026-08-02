@@ -7,6 +7,9 @@ import { api, type HealthResponse, type TrieStats } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AutokeyEditor } from "@/components/editor/autokey-editor";
+import { CheckAllPanel } from "@/components/panels/check-all-panel";
+import { SegmentPanel } from "@/components/panels/segment-panel";
+import { StatsPanel } from "@/components/panels/stats-panel";
 import {
   Card,
   CardContent,
@@ -14,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type LoadState = {
   health: HealthResponse | null;
@@ -27,16 +30,6 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID").format(value);
 }
 
-function formatBytes(value: number) {
-  if (value < 1024) {
-    return `${value} B`;
-  }
-  if (value < 1024 * 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
-  }
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default function Home() {
   const [editorText, setEditorText] = useState("");
   const [state, setState] = useState<LoadState>({
@@ -46,30 +39,58 @@ export default function Home() {
     error: null,
   });
 
-  async function loadBackendStatus() {
+  async function fetchBackendStatus() {
+    const [health, stats] = await Promise.all([
+      api.getHealth(),
+      api.getStats(),
+    ]);
+    return { health, stats };
+  }
+
+  function getBackendErrorState(error: unknown): LoadState {
+    return {
+      health: null,
+      stats: null,
+      loading: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Backend status could not be loaded.",
+    };
+  }
+
+  async function refreshBackendStatus() {
     setState((current) => ({ ...current, loading: true, error: null }));
 
     try {
-      const [health, stats] = await Promise.all([
-        api.getHealth(),
-        api.getStats(),
-      ]);
+      const { health, stats } = await fetchBackendStatus();
       setState({ health, stats, loading: false, error: null });
     } catch (error) {
-      setState({
-        health: null,
-        stats: null,
-        loading: false,
-        error:
-          error instanceof Error
-            ? error.message
-            : "Backend status could not be loaded.",
-      });
+      setState(getBackendErrorState(error));
     }
   }
 
   useEffect(() => {
-    void loadBackendStatus();
+    let active = true;
+
+    async function loadInitialBackendStatus() {
+      try {
+        const { health, stats } = await fetchBackendStatus();
+        if (active) {
+          setState({ health, stats, loading: false, error: null });
+        }
+      } catch (error) {
+        if (active) {
+          setState(getBackendErrorState(error));
+        }
+      }
+    }
+
+    void loadInitialBackendStatus();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const online = state.health?.ok === true && state.error === null;
@@ -92,7 +113,7 @@ export default function Home() {
               Backend and dictionary readiness check for the AutoKey editor.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant={online ? "outline" : "secondary"}
               className={
@@ -107,7 +128,7 @@ export default function Home() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => void loadBackendStatus()}
+              onClick={() => void refreshBackendStatus()}
               disabled={state.loading}
             >
               <RefreshCw
@@ -119,98 +140,75 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Status</CardTitle>
-              <CardDescription>
-                Confirms that the FastAPI backend can load the dictionary.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {state.error ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-                  {state.error}
-                </div>
-              ) : null}
+        {state.error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+            {state.error}
+          </div>
+        ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div
-                  className={`rounded-md border p-4 ${
-                    online ? "autokey-accent-surface" : ""
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div
+                className={`rounded-md border p-4 ${
+                  online ? "autokey-accent-surface" : ""
+                }`}
+              >
+                <p className="text-xs text-muted-foreground">API</p>
+                <p
+                  className={`mt-1 text-lg font-medium ${
+                    online ? "autokey-accent-text" : ""
                   }`}
                 >
-                  <p className="text-xs text-muted-foreground">API</p>
-                  <p
-                    className={`mt-1 text-lg font-medium ${
-                      online ? "autokey-accent-text" : ""
-                    }`}
-                  >
-                    {state.loading ? "Checking" : online ? "Ready" : "Offline"}
-                  </p>
-                </div>
-                <div className="rounded-md border p-4">
-                  <p className="text-xs text-muted-foreground">Dictionary</p>
-                  <p className="mt-1 text-lg font-medium">
-                    {state.health?.dictionary_loaded ? "Loaded" : "Unknown"}
-                  </p>
-                </div>
-                <div className="rounded-md border p-4">
-                  <p className="text-xs text-muted-foreground">Words</p>
-                  <p className="mt-1 text-lg font-medium">
-                    {state.health
-                      ? formatNumber(state.health.word_count)
-                      : "Unknown"}
-                  </p>
-                </div>
+                  {state.loading ? "Checking" : online ? "Ready" : "Offline"}
+                </p>
               </div>
-            </CardContent>
-          </Card>
+              <div className="rounded-md border p-4">
+                <p className="text-xs text-muted-foreground">Dictionary</p>
+                <p className="mt-1 text-lg font-medium">
+                  {state.health?.dictionary_loaded ? "Loaded" : "Unknown"}
+                </p>
+              </div>
+              <div className="rounded-md border p-4">
+                <p className="text-xs text-muted-foreground">Words</p>
+                <p className="mt-1 text-lg font-medium">
+                  {state.health
+                    ? formatNumber(state.health.word_count)
+                    : "Unknown"}
+                </p>
+              </div>
+            </div>
 
-          <Card>
+            <AutokeyEditor text={editorText} onTextChange={setEditorText} />
+          </div>
+
+          <Card className="h-fit">
             <CardHeader>
-              <CardTitle>Trie Statistics</CardTitle>
+              <CardTitle>Tools</CardTitle>
               <CardDescription>
-                Values reported by the backend after dictionary load.
+                Trie stats, full text spell check, and Auto-Space.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Inserted words</span>
-                  <span className="font-medium">
-                    {state.stats ? formatNumber(state.stats.word_count) : "-"}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Nodes</span>
-                  <span className="font-medium">
-                    {state.stats ? formatNumber(state.stats.node_count) : "-"}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Average depth</span>
-                  <span className="font-medium">
-                    {state.stats ? state.stats.average_depth.toFixed(2) : "-"}
-                  </span>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Memory estimate</span>
-                  <span className="font-medium">
-                    {state.stats
-                      ? formatBytes(state.stats.estimated_memory_bytes)
-                      : "-"}
-                  </span>
-                </div>
-              </div>
+              <Tabs defaultValue="stats">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="stats">Stats</TabsTrigger>
+                  <TabsTrigger value="check">Check</TabsTrigger>
+                  <TabsTrigger value="space">Space</TabsTrigger>
+                </TabsList>
+                <TabsContent value="stats" className="mt-4">
+                  <StatsPanel stats={state.stats} loading={state.loading} />
+                </TabsContent>
+                <TabsContent value="check" className="mt-4">
+                  <CheckAllPanel text={editorText} disabled={!online} />
+                </TabsContent>
+                <TabsContent value="space" className="mt-4">
+                  <SegmentPanel />
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>
-
-        <AutokeyEditor text={editorText} onTextChange={setEditorText} />
       </section>
     </main>
   );
