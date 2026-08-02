@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.dictionary import DictionaryService
 from app.levenshtein import find_spell_suggestions
@@ -27,6 +28,16 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 DATA_PATH = ROOT_DIR / "data" / "kamus.json"
 
 app = FastAPI(title="AutoKey API")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 dictionary_service = DictionaryService.load(DATA_PATH)
 WORD_PATTERN = re.compile(r"[A-Za-zÀ-ÿ]+")
 
