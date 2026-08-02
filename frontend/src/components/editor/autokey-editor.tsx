@@ -3,6 +3,8 @@
 import {
   type FormEvent,
   type KeyboardEvent,
+  type ReactNode,
+  type UIEvent,
   useEffect,
   useMemo,
   useRef,
@@ -33,6 +35,39 @@ type CorrectionState = {
 
 function tokenKey(token: Token) {
   return `${token.start}:${token.end}:${token.value}`;
+}
+
+function renderEditorHighlights(text: string, invalidTokens: Token[]) {
+  if (text.length === 0) {
+    return null;
+  }
+
+  const orderedTokens = [...invalidTokens].sort((first, second) => {
+    return first.start - second.start;
+  });
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+
+  orderedTokens.forEach((token) => {
+    if (token.start > cursor) {
+      parts.push(
+        <span key={`text-${cursor}`}>{text.slice(cursor, token.start)}</span>,
+      );
+    }
+
+    parts.push(
+      <span key={tokenKey(token)} className="autokey-inline-invalid">
+        {text.slice(token.start, token.end)}
+      </span>,
+    );
+    cursor = token.end;
+  });
+
+  if (cursor < text.length) {
+    parts.push(<span key={`text-${cursor}`}>{text.slice(cursor)}</span>);
+  }
+
+  return parts;
 }
 
 function getCaretOffset(container: HTMLElement) {
@@ -81,6 +116,7 @@ function setCaretOffset(container: HTMLElement, offset: number) {
 
 export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const nextCaretOffset = useRef<number | null>(null);
   const [invalidKeys, setInvalidKeys] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -92,6 +128,10 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const invalidTokens = useMemo(
     () => tokens.filter((token) => invalidKeys.has(tokenKey(token))),
     [invalidKeys, tokens],
+  );
+  const highlightedText = useMemo(
+    () => renderEditorHighlights(text, invalidTokens),
+    [invalidTokens, text],
   );
 
   useEffect(() => {
@@ -169,6 +209,32 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
 
     if (isWordBoundary(nextText)) {
       void validateCompletedWords(nextText);
+    }
+  }
+
+  function handleScroll(event: UIEvent<HTMLDivElement>) {
+    const highlights = highlightRef.current;
+    if (!highlights) {
+      return;
+    }
+
+    highlights.scrollTop = event.currentTarget.scrollTop;
+    highlights.scrollLeft = event.currentTarget.scrollLeft;
+  }
+
+  function handleClick() {
+    const editor = editorRef.current;
+    if (!editor) {
+      return;
+    }
+
+    const caretOffset = getCaretOffset(editor);
+    const token = invalidTokens.find((item) => {
+      return caretOffset >= item.start && caretOffset <= item.end;
+    });
+
+    if (token) {
+      void openCorrectionMenu(token);
     }
   }
 
@@ -255,49 +321,49 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   }
 
   return (
-    <Card className="relative border-[color:color-mix(in_oklch,var(--autokey-accent)_18%,var(--border))]">
-      <CardHeader className="pb-3">
+    <Card className="autokey-panel relative">
+      <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span
               className="autokey-accent-dot h-2 w-2 rounded-full"
               aria-hidden="true"
             />
-            <CardTitle>Editor</CardTitle>
+            <CardTitle className="text-base">Teks Editor</CardTitle>
           </div>
-          <span className="autokey-accent-text text-xs">{status}</span>
+          <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+            {status}
+          </span>
         </div>
       </CardHeader>
       <CardContent className="relative">
-        <div
-          ref={editorRef}
-          role="textbox"
-          aria-label="AutoKey editor"
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={false}
-          className="autokey-editor min-h-72 w-full whitespace-pre-wrap rounded-md border bg-background p-4 text-base leading-7 outline-none"
-          onInput={handleInput}
-          onKeyDown={handleKeyDown}
-        />
-
-        {invalidTokens.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {invalidTokens.map((token) => (
-              <button
-                key={tokenKey(token)}
-                type="button"
-                className="autokey-invalid-token rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-sm text-destructive"
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  void openCorrectionMenu(token);
-                }}
-              >
-                {text.slice(token.start, token.end)}
-              </button>
-            ))}
+        <div className="relative rounded-[22px] border bg-background">
+          <div
+            ref={highlightRef}
+            aria-hidden="true"
+            className="autokey-highlight-layer pointer-events-none absolute inset-0 overflow-hidden p-6 text-lg leading-8"
+          >
+            {highlightedText}
           </div>
-        ) : null}
+          <div
+            ref={editorRef}
+            role="textbox"
+            aria-label="AutoKey editor"
+            contentEditable
+            suppressContentEditableWarning
+            spellCheck={false}
+            data-placeholder="Tulis teks di sini..."
+            className="autokey-editor relative z-10 min-h-64 w-full overflow-auto whitespace-pre-wrap rounded-[22px] bg-transparent p-6 text-lg leading-8 outline-none"
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
+            onClick={handleClick}
+          />
+        </div>
+
+        <p className="mt-3 text-sm text-muted-foreground">
+          Ketik untuk autocomplete. Klik kata bergaris merah untuk koreksi.
+        </p>
 
         <AutocompleteMenu
           suggestions={suggestions}

@@ -19,13 +19,13 @@ export function AutocompleteMenu({
   }
 
   return (
-    <div className="absolute left-4 top-16 z-20 w-72 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+    <div className="absolute left-8 top-24 z-20 w-72 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-lg">
       {suggestions.map((suggestion, index) => (
         <Button
           key={suggestion.word}
           type="button"
           variant="ghost"
-          className={`h-9 w-full justify-between ${
+          className={`h-10 w-full justify-between rounded-xl ${
             index === activeIndex ? "autokey-suggestion-active" : ""
           }`}
           onMouseDown={(event) => {

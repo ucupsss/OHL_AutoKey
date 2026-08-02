@@ -8,12 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AutokeyEditor } from "@/components/editor/autokey-editor";
 import { CheckAllPanel } from "@/components/panels/check-all-panel";
+import { LevenshteinPanel } from "@/components/panels/levenshtein-panel";
 import { SegmentPanel } from "@/components/panels/segment-panel";
-import { StatsPanel } from "@/components/panels/stats-panel";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -30,14 +29,30 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID").format(value);
 }
 
+function formatBytes(value: number) {
+  if (value < 1024) {
+    return `${value} B`;
+  }
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export default function Home() {
   const [editorText, setEditorText] = useState("");
+  const [issueCount, setIssueCount] = useState<number | null>(null);
   const [state, setState] = useState<LoadState>({
     health: null,
     stats: null,
     loading: true,
     error: null,
   });
+
+  function handleEditorTextChange(nextText: string) {
+    setEditorText(nextText);
+    setIssueCount(null);
+  }
 
   async function fetchBackendStatus() {
     const [health, stats] = await Promise.all([
@@ -94,25 +109,52 @@ export default function Home() {
   }, []);
 
   const online = state.health?.ok === true && state.error === null;
+  const metrics = [
+    {
+      label: "kata",
+      value: state.health ? formatNumber(state.health.word_count) : "-",
+    },
+    {
+      label: "node trie",
+      value: state.stats ? formatNumber(state.stats.node_count) : "-",
+    },
+    {
+      label: "depth",
+      value: state.stats ? state.stats.average_depth.toFixed(1) : "-",
+    },
+    {
+      label: "memori",
+      value: state.stats ? formatBytes(state.stats.estimated_memory_bytes) : "-",
+    },
+    {
+      label: "status",
+      value: online ? "online" : "offline",
+    },
+  ];
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 border-b border-[color:color-mix(in_oklch,var(--autokey-accent)_24%,var(--border))] pb-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <span
-                className="autokey-accent-dot h-2.5 w-2.5 rounded-full"
-                aria-hidden="true"
-              />
-              <h1 className="text-2xl font-semibold tracking-normal">
-                AutoKey
-              </h1>
+      <section className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--autokey-accent-strong)] text-lg font-semibold text-white shadow-sm">
+              A
             </div>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Backend and dictionary readiness check for the AutoKey editor.
-            </p>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold tracking-normal">AutoKey</h1>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {metrics.map((item) => (
+                  <span key={item.label}>
+                    <span className="font-medium text-foreground">
+                      {item.value}
+                    </span>{" "}
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+            </div>
           </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant={online ? "outline" : "secondary"}
@@ -141,74 +183,60 @@ export default function Home() {
         </div>
 
         {state.error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             {state.error}
           </div>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_344px]">
           <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div
-                className={`rounded-md border p-4 ${
-                  online ? "autokey-accent-surface" : ""
-                }`}
-              >
-                <p className="text-xs text-muted-foreground">API</p>
-                <p
-                  className={`mt-1 text-lg font-medium ${
-                    online ? "autokey-accent-text" : ""
-                  }`}
-                >
-                  {state.loading ? "Checking" : online ? "Ready" : "Offline"}
-                </p>
-              </div>
-              <div className="rounded-md border p-4">
-                <p className="text-xs text-muted-foreground">Dictionary</p>
-                <p className="mt-1 text-lg font-medium">
-                  {state.health?.dictionary_loaded ? "Loaded" : "Unknown"}
-                </p>
-              </div>
-              <div className="rounded-md border p-4">
-                <p className="text-xs text-muted-foreground">Words</p>
-                <p className="mt-1 text-lg font-medium">
-                  {state.health
-                    ? formatNumber(state.health.word_count)
-                    : "Unknown"}
-                </p>
-              </div>
-            </div>
-
-            <AutokeyEditor text={editorText} onTextChange={setEditorText} />
+            <AutokeyEditor
+              text={editorText}
+              onTextChange={handleEditorTextChange}
+            />
           </div>
 
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle>Tools</CardTitle>
-              <CardDescription>
-                Trie stats, full text spell check, and Auto-Space.
-              </CardDescription>
+          <Card className="autokey-panel h-fit min-h-[292px]">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-base">Ringkasan</CardTitle>
+                <Badge variant="secondary">
+                  {online
+                    ? `${issueCount ?? 0} isu`
+                    : "offline"}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="stats">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="stats">Stats</TabsTrigger>
-                  <TabsTrigger value="check">Check</TabsTrigger>
-                  <TabsTrigger value="space">Space</TabsTrigger>
-                </TabsList>
-                <TabsContent value="stats" className="mt-4">
-                  <StatsPanel stats={state.stats} loading={state.loading} />
-                </TabsContent>
-                <TabsContent value="check" className="mt-4">
-                  <CheckAllPanel text={editorText} disabled={!online} />
-                </TabsContent>
-                <TabsContent value="space" className="mt-4">
-                  <SegmentPanel />
-                </TabsContent>
-              </Tabs>
+              <CheckAllPanel
+                text={editorText}
+                disabled={!online}
+                onIssueCountChange={setIssueCount}
+              />
             </CardContent>
           </Card>
         </div>
+
+        <Card className="autokey-panel">
+          <CardContent className="p-5">
+            <Tabs defaultValue="space">
+              <TabsList className="grid h-10 w-full grid-cols-2 rounded-full">
+                <TabsTrigger value="space" className="rounded-full">
+                  Auto-Space
+                </TabsTrigger>
+                <TabsTrigger value="levenshtein" className="rounded-full">
+                  Levenshtein
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="space" className="mt-5">
+                <SegmentPanel />
+              </TabsContent>
+              <TabsContent value="levenshtein" className="mt-5">
+                <LevenshteinPanel />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </section>
     </main>
   );

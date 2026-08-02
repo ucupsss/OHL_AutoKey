@@ -49,7 +49,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.992 0.006 155);
   --foreground: oklch(0.145 0 0);
   --autokey-accent: oklch(0.63 0.18 155);
   --autokey-accent-strong: oklch(0.45 0.15 155);
@@ -58,13 +58,13 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: var(--autokey-accent-strong);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.955 0.01 155);
   --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
+  --muted: oklch(0.955 0.01 155);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --accent: var(--autokey-accent-soft);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
@@ -129,17 +129,11 @@
   }
   body {
     @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;
   }
-}
-
-.autokey-invalid-token {
-  text-decoration-line: underline;
-  text-decoration-style: wavy;
-  text-decoration-color: var(--destructive);
-  text-underline-offset: 3px;
 }
 
 .autokey-accent-surface {
@@ -166,4 +160,38 @@
 .autokey-suggestion-active {
   background: color-mix(in oklch, var(--autokey-accent) 14%, var(--background));
   color: var(--foreground);
+}
+
+.autokey-panel {
+  border-radius: 24px;
+  border-color: color-mix(in oklch, var(--autokey-accent) 12%, var(--border));
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.96), rgb(255 255 255 / 0.9)),
+    var(--card);
+  box-shadow: 0 18px 50px rgb(15 23 42 / 0.05);
+}
+
+.autokey-highlight-layer {
+  color: transparent;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.autokey-inline-invalid {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--destructive);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+}
+
+.autokey-editor {
+  caret-color: var(--autokey-accent-strong);
+  overflow-wrap: break-word;
+}
+
+.autokey-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted-foreground);
+  pointer-events: none;
 }
