@@ -43,6 +43,27 @@ export type SegmentResult = {
   message: string;
 };
 
+export type SmartTrimResult = {
+  success: boolean;
+  trimmed_text: string;
+  kept_words: Array<{
+    index: number;
+    word: string;
+    weight: number;
+    value: number;
+  }>;
+  total_characters: number;
+  total_value: number;
+  dp: number[][];
+  traceback: Array<{
+    index: number;
+    word: string;
+    remaining_capacity: number;
+    value: number;
+  }>;
+  message: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -83,6 +104,14 @@ export const api = {
     request<SegmentResult>("/segment", {
       method: "POST",
       body: JSON.stringify({ text }),
+    }),
+  smartTrim: (text: string, maxCharacters: number) =>
+    request<SmartTrimResult>("/smart-trim", {
+      method: "POST",
+      body: JSON.stringify({
+        text,
+        max_characters: maxCharacters,
+      }),
     }),
   addWord: (word: string) =>
     request<{ word: string; added: boolean; valid: boolean }>("/dictionary/add", {

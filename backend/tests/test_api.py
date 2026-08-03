@@ -111,3 +111,21 @@ def test_segment_endpoint_returns_dp_and_traceback():
     assert "dp" in payload
     assert "traceback" in payload
     assert isinstance(payload["dp"], list)
+
+
+def test_smart_trim_endpoint_returns_knapsack_traceback():
+    response = client.post(
+        "/smart-trim",
+        json={
+            "text": "program dinamis algoritma",
+            "max_characters": 15,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "trimmed_text" in payload
+    assert "kept_words" in payload
+    assert "dp" in payload
+    assert "traceback" in payload
+    assert payload["total_characters"] <= 15

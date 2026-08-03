@@ -10,6 +10,7 @@ import { AutokeyEditor } from "@/components/editor/autokey-editor";
 import { CheckAllPanel } from "@/components/panels/check-all-panel";
 import { LevenshteinPanel } from "@/components/panels/levenshtein-panel";
 import { SegmentPanel } from "@/components/panels/segment-panel";
+import { SmartTrimPanel } from "@/components/panels/smart-trim-panel";
 import {
   Card,
   CardContent,
@@ -220,12 +221,15 @@ export default function Home() {
         <Card className="autokey-panel">
           <CardContent className="p-5">
             <Tabs defaultValue="space">
-              <TabsList className="grid h-10 w-full grid-cols-2 rounded-full">
+              <TabsList className="grid h-10 w-full grid-cols-3 rounded-full">
                 <TabsTrigger value="space" className="rounded-full">
                   Auto-Space
                 </TabsTrigger>
                 <TabsTrigger value="levenshtein" className="rounded-full">
                   Levenshtein
+                </TabsTrigger>
+                <TabsTrigger value="smart-trim" className="rounded-full">
+                  Smart Trim
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="space" className="mt-5">
@@ -233,6 +237,9 @@ export default function Home() {
               </TabsContent>
               <TabsContent value="levenshtein" className="mt-5">
                 <LevenshteinPanel />
+              </TabsContent>
+              <TabsContent value="smart-trim" className="mt-5">
+                <SmartTrimPanel text={editorText} />
               </TabsContent>
             </Tabs>
           </CardContent>

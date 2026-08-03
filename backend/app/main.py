@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.dictionary import DictionaryService
 from app.levenshtein import find_spell_suggestions
 from app.segmentation import segment_text
+from app.smart_trim import smart_trim_text
 from app.schemas import (
     AddWordRequest,
     AddWordResponse,
@@ -16,6 +17,10 @@ from app.schemas import (
     InvalidWordResponse,
     SegmentRequest,
     SegmentResponse,
+    SmartTrimRequest,
+    SmartTrimResponse,
+    SmartTrimTracebackStepResponse,
+    SmartTrimWordResponse,
     SpellSuggestionResponse,
     SpellSuggestionsResponse,
     SuggestionResponse,
@@ -155,6 +160,42 @@ def segment(request: SegmentRequest) -> SegmentResponse:
                 end=step.end,
                 word=step.word,
                 cost=step.cost,
+            )
+            for step in result.traceback
+        ],
+        message=result.message,
+    )
+
+
+@app.post("/smart-trim", response_model=SmartTrimResponse)
+def smart_trim(request: SmartTrimRequest) -> SmartTrimResponse:
+    result = smart_trim_text(
+        request.text,
+        dictionary_service.words,
+        dictionary_service.total_frequency,
+        request.max_characters,
+    )
+    return SmartTrimResponse(
+        success=result.success,
+        trimmed_text=result.trimmed_text,
+        kept_words=[
+            SmartTrimWordResponse(
+                index=item.index,
+                word=item.word,
+                weight=item.weight,
+                value=item.value,
+            )
+            for item in result.kept_words
+        ],
+        total_characters=result.total_characters,
+        total_value=result.total_value,
+        dp=result.dp,
+        traceback=[
+            SmartTrimTracebackStepResponse(
+                index=step.index,
+                word=step.word,
+                remaining_capacity=step.remaining_capacity,
+                value=step.value,
             )
             for step in result.traceback
         ],

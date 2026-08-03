@@ -67,3 +67,33 @@ class SegmentResponse(BaseModel):
     dp: list[float | None]
     traceback: list[TracebackStepResponse]
     message: str
+
+
+class SmartTrimRequest(BaseModel):
+    text: str = Field(min_length=1)
+    max_characters: int = Field(ge=1, le=240)
+
+
+class SmartTrimWordResponse(BaseModel):
+    index: int
+    word: str
+    weight: int
+    value: float
+
+
+class SmartTrimTracebackStepResponse(BaseModel):
+    index: int
+    word: str
+    remaining_capacity: int
+    value: float
+
+
+class SmartTrimResponse(BaseModel):
+    success: bool
+    trimmed_text: str
+    kept_words: list[SmartTrimWordResponse]
+    total_characters: int
+    total_value: float
+    dp: list[list[float]]
+    traceback: list[SmartTrimTracebackStepResponse]
+    message: str
