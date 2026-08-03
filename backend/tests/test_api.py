@@ -50,6 +50,30 @@ def test_autocomplete_returns_top_suggestions():
     assert all(item["word"].startswith("prog") for item in payload["suggestions"])
 
 
+def test_autocomplete_can_rerank_with_bigram_context():
+    observe_response = client.post(
+        "/bigram/observe",
+        json={"previous_word": "algoritma", "current_word": "proyek"},
+    )
+    assert observe_response.status_code == 200
+    assert observe_response.json()["observed"] is True
+
+    response = client.get(
+        "/autocomplete",
+        params={
+            "prefix": "pro",
+            "limit": 5,
+            "previous_word": "algoritma",
+            "bigram": True,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["bigram_used"] is True
+    assert payload["suggestions"][0]["word"] == "proyek"
+
+
 def test_autocomplete_empty_prefix_returns_empty_list():
     response = client.get("/autocomplete", params={"prefix": "", "limit": 5})
 
@@ -129,3 +153,24 @@ def test_smart_trim_endpoint_returns_knapsack_traceback():
     assert "dp" in payload
     assert "traceback" in payload
     assert payload["total_characters"] <= 15
+
+
+def test_bigram_observe_rejects_unknown_words_without_counting():
+    response = client.post(
+        "/bigram/observe",
+        json={"previous_word": "algoritma", "current_word": "qqqtidakvalid"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["observed"] is False
+    assert payload["pair_count"] >= 0
+
+
+def test_bigram_stats_returns_session_counter():
+    response = client.get("/bigram/stats")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "pair_count" in payload
+    assert "context_count" in payload

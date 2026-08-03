@@ -8,6 +8,7 @@ class SuggestionResponse(BaseModel):
 
 class AutocompleteResponse(BaseModel):
     suggestions: list[SuggestionResponse]
+    bigram_used: bool = False
 
 
 class ValidateResponse(BaseModel):
@@ -97,3 +98,20 @@ class SmartTrimResponse(BaseModel):
     dp: list[list[float]]
     traceback: list[SmartTrimTracebackStepResponse]
     message: str
+
+
+class BigramObserveRequest(BaseModel):
+    previous_word: str = Field(min_length=1)
+    current_word: str = Field(min_length=1)
+
+
+class BigramObserveResponse(BaseModel):
+    previous_word: str
+    current_word: str
+    observed: bool
+    pair_count: int
+
+
+class BigramStatsResponse(BaseModel):
+    pair_count: int
+    context_count: int

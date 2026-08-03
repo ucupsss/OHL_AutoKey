@@ -19,6 +19,11 @@ export type Suggestion = {
   frequency: number;
 };
 
+export type AutocompleteResult = {
+  suggestions: Suggestion[];
+  bigram_used: boolean;
+};
+
 export type SpellSuggestion = Suggestion & {
   distance: number;
 };
@@ -64,6 +69,11 @@ export type SmartTrimResult = {
   message: string;
 };
 
+export type BigramStats = {
+  pair_count: number;
+  context_count: number;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -83,10 +93,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   getHealth: () => request<HealthResponse>("/health"),
   getStats: () => request<TrieStats>("/stats"),
-  getAutocomplete: (prefix: string, limit = 5) =>
-    request<{ suggestions: Suggestion[] }>(
-      `/autocomplete?prefix=${encodeURIComponent(prefix)}&limit=${limit}`,
-    ),
+  getAutocomplete: (
+    prefix: string,
+    limit = 5,
+    options?: {
+      previousWord?: string | null;
+      bigram?: boolean;
+    },
+  ) => {
+    const params = new URLSearchParams({
+      prefix,
+      limit: String(limit),
+    });
+    if (options?.previousWord) {
+      params.set("previous_word", options.previousWord);
+    }
+    if (options?.bigram) {
+      params.set("bigram", "true");
+    }
+    return request<AutocompleteResult>(`/autocomplete?${params.toString()}`);
+  },
   validateWord: (word: string) =>
     request<{ word: string; valid: boolean }>(
       `/validate?word=${encodeURIComponent(word)}`,
@@ -113,6 +139,18 @@ export const api = {
         max_characters: maxCharacters,
       }),
     }),
+  observeBigram: (previousWord: string, currentWord: string) =>
+    request<{ previous_word: string; current_word: string; observed: boolean; pair_count: number }>(
+      "/bigram/observe",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          previous_word: previousWord,
+          current_word: currentWord,
+        }),
+      },
+    ),
+  getBigramStats: () => request<BigramStats>("/bigram/stats"),
   addWord: (word: string) =>
     request<{ word: string; added: boolean; valid: boolean }>("/dictionary/add", {
       method: "POST",

@@ -118,9 +118,12 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const editorRef = useRef<HTMLDivElement | null>(null);
   const highlightRef = useRef<HTMLDivElement | null>(null);
   const nextCaretOffset = useRef<number | null>(null);
+  const observedBigramKeys = useRef<Set<string>>(new Set());
   const [invalidKeys, setInvalidKeys] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [bigramEnabled, setBigramEnabled] = useState(false);
+  const [bigramPairCount, setBigramPairCount] = useState(0);
   const [correction, setCorrection] = useState<CorrectionState | null>(null);
   const [status, setStatus] = useState("Ready");
 
@@ -153,6 +156,36 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     nextCaretOffset.current = null;
   }, [text]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadBigramStats() {
+      try {
+        const response = await api.getBigramStats();
+        if (active) {
+          setBigramPairCount(response.pair_count);
+        }
+      } catch {
+        if (active) {
+          setBigramPairCount(0);
+        }
+      }
+    }
+
+    void loadBigramStats();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function getPreviousCompletedWord(nextText: string, currentWord: Token) {
+    const previousTokens = getWordTokens(nextText).filter((token) => {
+      return token.end <= currentWord.start;
+    });
+    return previousTokens.at(-1)?.value ?? null;
+  }
+
   async function updateAutocomplete(nextText: string, caretOffset: number) {
     const currentWord = getCurrentWord(nextText, caretOffset);
     if (!currentWord) {
@@ -167,12 +200,46 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     }
 
     try {
-      const response = await api.getAutocomplete(prefix, 5);
+      const previousWord = getPreviousCompletedWord(nextText, currentWord);
+      const response = await api.getAutocomplete(prefix, 5, {
+        previousWord,
+        bigram: bigramEnabled,
+      });
       setSuggestions(response.suggestions);
       setActiveSuggestion(0);
     } catch {
       setSuggestions([]);
     }
+  }
+
+  async function observeBigramPairs(nextText: string) {
+    const nextTokens = getWordTokens(nextText);
+    if (nextTokens.length < 2) {
+      return;
+    }
+
+    const observations = nextTokens.slice(1).map(async (token, index) => {
+      const previousToken = nextTokens[index];
+      const pairKey = `${previousToken.start}:${previousToken.end}:${token.start}:${token.end}:${previousToken.value}:${token.value}`;
+      if (observedBigramKeys.current.has(pairKey)) {
+        return;
+      }
+
+      observedBigramKeys.current.add(pairKey);
+      try {
+        const response = await api.observeBigram(
+          previousToken.value,
+          token.value,
+        );
+        if (response.observed) {
+          setBigramPairCount(response.pair_count);
+        }
+      } catch {
+        observedBigramKeys.current.delete(pairKey);
+      }
+    });
+
+    await Promise.all(observations);
   }
 
   async function validateCompletedWords(nextText: string) {
@@ -202,6 +269,10 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     const nextText = editor.innerText.replace(/\r/g, "");
     const caretOffset = getCaretOffset(editor);
 
+    if (nextText.length < text.length) {
+      observedBigramKeys.current.clear();
+    }
+
     nextCaretOffset.current = caretOffset;
     onTextChange(nextText);
     setCorrection(null);
@@ -209,6 +280,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
 
     if (isWordBoundary(nextText)) {
       void validateCompletedWords(nextText);
+      void observeBigramPairs(nextText);
     }
   }
 
@@ -247,6 +319,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     setSuggestions([]);
     setCorrection(null);
     void validateCompletedWords(nextText);
+    void observeBigramPairs(nextText);
   }
 
   function completeCurrentWord(word: string) {
@@ -331,9 +404,24 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
             />
             <CardTitle className="text-base">Teks Editor</CardTitle>
           </div>
-          <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
-            {status}
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <label className="flex cursor-pointer items-center gap-2 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={bigramEnabled}
+                onChange={(event) => setBigramEnabled(event.target.checked)}
+                className="size-3 accent-[var(--autokey-accent-strong)]"
+                aria-label="Toggle Bigram autocomplete"
+              />
+              Bigram {bigramEnabled ? "ON" : "OFF"}
+            </label>
+            <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+              {bigramPairCount} pairs
+            </span>
+            <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+              {status}
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="relative">

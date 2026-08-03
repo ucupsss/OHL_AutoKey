@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.bigram import BigramModel
 from app.dictionary import DictionaryService
 from app.levenshtein import find_spell_suggestions
 from app.segmentation import segment_text
@@ -12,6 +13,9 @@ from app.schemas import (
     AddWordRequest,
     AddWordResponse,
     AutocompleteResponse,
+    BigramObserveRequest,
+    BigramObserveResponse,
+    BigramStatsResponse,
     CheckAllRequest,
     CheckAllResponse,
     InvalidWordResponse,
@@ -44,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 dictionary_service = DictionaryService.load(DATA_PATH)
+bigram_model = BigramModel()
 WORD_PATTERN = re.compile(r"[A-Za-zÀ-ÿ]+")
 
 
@@ -88,13 +93,23 @@ def stats() -> dict[str, int | float]:
 def autocomplete(
     prefix: str = Query(default=""),
     limit: int = Query(default=5, ge=1, le=20),
+    previous_word: str | None = Query(default=None),
+    bigram: bool = Query(default=False),
 ) -> AutocompleteResponse:
-    suggestions = dictionary_service.trie.get_suggestions(prefix, limit)
+    candidate_limit = 20 if bigram and previous_word else limit
+    candidates = dictionary_service.trie.get_suggestions(prefix, candidate_limit)
+    bigram_used = False
+    if bigram and previous_word:
+        reranked = bigram_model.rerank(previous_word, candidates)
+        bigram_used = reranked != candidates
+        candidates = reranked
+    suggestions = candidates[:limit]
     return AutocompleteResponse(
         suggestions=[
             SuggestionResponse(word=item.word, frequency=item.frequency)
             for item in suggestions
-        ]
+        ],
+        bigram_used=bigram_used,
     )
 
 
@@ -200,4 +215,32 @@ def smart_trim(request: SmartTrimRequest) -> SmartTrimResponse:
             for step in result.traceback
         ],
         message=result.message,
+    )
+
+
+@app.post("/bigram/observe", response_model=BigramObserveResponse)
+def observe_bigram(request: BigramObserveRequest) -> BigramObserveResponse:
+    previous = request.previous_word.strip().lower()
+    current = request.current_word.strip().lower()
+    observed = (
+        dictionary_service.contains(previous)
+        and dictionary_service.contains(current)
+    )
+    if observed:
+        bigram_model.observe(previous, current)
+
+    return BigramObserveResponse(
+        previous_word=previous,
+        current_word=current,
+        observed=observed,
+        pair_count=bigram_model.pair_count,
+    )
+
+
+@app.get("/bigram/stats", response_model=BigramStatsResponse)
+def bigram_stats() -> BigramStatsResponse:
+    stats_result = bigram_model.stats()
+    return BigramStatsResponse(
+        pair_count=stats_result.pair_count,
+        context_count=stats_result.context_count,
     )
