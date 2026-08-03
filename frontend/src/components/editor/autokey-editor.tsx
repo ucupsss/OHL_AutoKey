@@ -31,6 +31,10 @@ type AutokeyEditorProps = {
 type CorrectionState = {
   token: Token;
   suggestions: SpellSuggestion[];
+  position: {
+    left: number;
+    top: number;
+  };
 };
 
 function tokenKey(token: Token) {
@@ -112,6 +116,59 @@ function setCaretOffset(container: HTMLElement, offset: number) {
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
+}
+
+function getTextPosition(container: HTMLElement, offset: number) {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let remaining = offset;
+  let node = walker.nextNode();
+
+  while (node) {
+    const textNode = node as Text;
+    const length = textNode.data.length;
+    if (remaining <= length) {
+      return {
+        node: textNode,
+        offset: remaining,
+      };
+    }
+
+    remaining -= length;
+    node = walker.nextNode();
+  }
+
+  return null;
+}
+
+function getTokenMenuPosition(container: HTMLElement, token: Token) {
+  const start = getTextPosition(container, token.start);
+  const end = getTextPosition(container, token.end);
+  if (!start || !end) {
+    const editorRect = container.getBoundingClientRect();
+    return {
+      left: Math.min(window.innerWidth - 336, Math.max(16, editorRect.left + 24)),
+      top: Math.min(window.innerHeight - 96, editorRect.top + 72),
+    };
+  }
+
+  const range = document.createRange();
+  range.setStart(start.node, start.offset);
+  range.setEnd(end.node, end.offset);
+  const tokenRect = range.getBoundingClientRect();
+  const menuWidth = 320;
+  const menuMaxHeight = 352;
+  const gap = 8;
+
+  return {
+    left: Math.min(
+      window.innerWidth - menuWidth - 16,
+      Math.max(16, tokenRect.left),
+    ),
+    top: Math.max(
+      16,
+      Math.min(window.innerHeight - menuMaxHeight - 16, tokenRect.bottom + gap),
+    ),
+  };
 }
 
 export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
@@ -306,7 +363,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     });
 
     if (token) {
-      void openCorrectionMenu(token);
+      void openCorrectionMenu(token, getTokenMenuPosition(editor, token));
     }
   }
 
@@ -362,14 +419,17 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     }
   }
 
-  async function openCorrectionMenu(token: Token) {
+  async function openCorrectionMenu(
+    token: Token,
+    position: CorrectionState["position"],
+  ) {
     setStatus(`Checking "${token.value}"`);
     try {
       const response = await api.getSpellSuggestions(token.value, 5);
-      setCorrection({ token, suggestions: response.suggestions });
+      setCorrection({ token, suggestions: response.suggestions, position });
       setStatus("Ready");
     } catch {
-      setCorrection({ token, suggestions: [] });
+      setCorrection({ token, suggestions: [], position });
       setStatus("Suggestion service unavailable");
     }
   }
@@ -463,6 +523,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
           <CorrectionMenu
             word={correction.token.value}
             suggestions={correction.suggestions}
+            position={correction.position}
             onPick={(word) => replaceToken(correction.token, word)}
             onAdd={addWord}
           />
