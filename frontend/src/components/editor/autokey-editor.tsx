@@ -37,6 +37,11 @@ type CorrectionState = {
   };
 };
 
+type MenuPosition = {
+  left: number;
+  top: number;
+};
+
 function tokenKey(token: Token) {
   return `${token.start}:${token.end}:${token.value}`;
 }
@@ -178,6 +183,8 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
   const observedBigramKeys = useRef<Set<string>>(new Set());
   const [invalidKeys, setInvalidKeys] = useState<Set<string>>(new Set());
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [autocompletePosition, setAutocompletePosition] =
+    useState<MenuPosition | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const [bigramEnabled, setBigramEnabled] = useState(false);
   const [bigramPairCount, setBigramPairCount] = useState(0);
@@ -247,12 +254,14 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     const currentWord = getCurrentWord(nextText, caretOffset);
     if (!currentWord) {
       setSuggestions([]);
+      setAutocompletePosition(null);
       return;
     }
 
     const prefix = nextText.slice(currentWord.start, caretOffset).toLowerCase();
     if (prefix.length === 0) {
       setSuggestions([]);
+      setAutocompletePosition(null);
       return;
     }
 
@@ -263,9 +272,18 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
         bigram: bigramEnabled,
       });
       setSuggestions(response.suggestions);
+      setAutocompletePosition(
+        editorRef.current
+          ? getTokenMenuPosition(editorRef.current, {
+              ...currentWord,
+              end: caretOffset,
+            })
+          : null,
+      );
       setActiveSuggestion(0);
     } catch {
       setSuggestions([]);
+      setAutocompletePosition(null);
     }
   }
 
@@ -349,6 +367,8 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
 
     highlights.scrollTop = event.currentTarget.scrollTop;
     highlights.scrollLeft = event.currentTarget.scrollLeft;
+    setSuggestions([]);
+    setAutocompletePosition(null);
   }
 
   function handleClick() {
@@ -374,6 +394,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
     nextCaretOffset.current = token.start + replacement.length;
     onTextChange(nextText);
     setSuggestions([]);
+    setAutocompletePosition(null);
     setCorrection(null);
     void validateCompletedWords(nextText);
     void observeBigramPairs(nextText);
@@ -516,6 +537,7 @@ export function AutokeyEditor({ text, onTextChange }: AutokeyEditorProps) {
         <AutocompleteMenu
           suggestions={suggestions}
           activeIndex={activeSuggestion}
+          position={autocompletePosition}
           onPick={completeCurrentWord}
         />
 

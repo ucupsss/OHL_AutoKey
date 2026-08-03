@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { RefreshCw } from "lucide-react";
 
 import { api, type HealthResponse, type TrieStats } from "@/lib/api";
@@ -138,8 +139,15 @@ export default function Home() {
       <section className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <div className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--autokey-accent-strong)] text-lg font-semibold text-white shadow-sm">
-              A
+            <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full border bg-white shadow-sm">
+              <Image
+                src="/autokey-logo.png"
+                alt=""
+                width={48}
+                height={48}
+                className="size-full object-cover"
+                priority
+              />
             </div>
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-normal">AutoKey</h1>

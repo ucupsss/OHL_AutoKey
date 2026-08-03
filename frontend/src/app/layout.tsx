@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "AutoKey",
   description: "Bahasa Indonesia editor with autocomplete and spell checking.",
+  icons: {
+    icon: "/autokey-logo.png",
+    shortcut: "/autokey-logo.png",
+    apple: "/autokey-logo.png",
+  },
 };
 
 export default function RootLayout({
